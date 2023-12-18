@@ -569,6 +569,7 @@ void clusterInit(void) {
     memset(g_pserver->cluster->slots_keys_count,0,
            sizeof(g_pserver->cluster->slots_keys_count));
 
+    // vipra
     /* Set myself->port/cport/pport to my listening ports, we'll just need to
      * discover the IP address via MEET messages. */
     deriveAnnouncedPorts(&myself->port, &myself->pport, &myself->cport);
