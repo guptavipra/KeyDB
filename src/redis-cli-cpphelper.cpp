@@ -445,10 +445,12 @@ extern "C" void clusterManagerWaitForClusterJoin(void) {
     int counter = 0,
         check_after = CLUSTER_JOIN_CHECK_AFTER +
                       (int)(listLength(cluster_manager.nodes) * 0.15f);
+    printf("clusterManagerWaitForClusterJoin: check_after: %d", check_after);
     while(!clusterManagerIsConfigConsistent()) {
         printf(".");
         fflush(stdout);
         sleep(1);
+        printf("clusterManagerWaitForClusterJoin: counter: %d", counter);
         if (++counter > check_after) {
             dict *status = clusterManagerGetLinkStatus();
             dictIterator *iter = NULL;
@@ -578,6 +580,7 @@ dict *clusterManagerGetLinkStatus(void) {
     return status;
 }
 
+// vipra
 extern "C" int clusterManagerCheckCluster(int quiet) {
     listNode *ln = listFirst(cluster_manager.nodes);
     if (!ln) return 0;
