@@ -4000,10 +4000,13 @@ cleanup:
 }
 
 int clusterManagerIsConfigConsistent(int fLog) {
+    printf("clusterManagerIsConfigConsistent: len(cluster_manager.nodes): %lu", (listLength(cluster_manager.nodes)));
+
     if (cluster_manager.nodes == NULL) return 0;
     int consistent = (listLength(cluster_manager.nodes) <= 1);
     // If the Cluster has only one node, it's always consistent
     if (consistent) return 1;
+
     sds first_cfg = NULL;
     const char *firstNode = NULL;
     listIter li;

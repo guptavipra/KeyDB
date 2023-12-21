@@ -4486,6 +4486,12 @@ void clusterCommand(client *c) {
         return;
     }
 
+    // vipra
+    serverLog(LL_DEBUG, "clusterCommand: c->argc %d", c->argc);
+    for(int j = 0; j < c->argc; j++) {
+        serverLog(LL_DEBUG, "clusterCommand: c->argv[%d]: %s", j, szFromObj(c->argv[j]));
+    }
+
     if (c->argc == 2 && !strcasecmp(szFromObj(c->argv[1]),"help")) {
         const char *help[] = {
 "ADDSLOTS <slot> [<slot> ...]",
@@ -4554,6 +4560,7 @@ NULL
         } else {
             cport = port + CLUSTER_PORT_INCR;
         }
+        serverLog(LL_DEBUG, "clusterCommand: port: %lld, cport: %lld", port, cport);
 
         if (clusterStartHandshake(szFromObj(c->argv[2]),port,cport) == 0 &&
             errno == EINVAL)
