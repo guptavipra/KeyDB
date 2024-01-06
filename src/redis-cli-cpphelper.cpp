@@ -445,17 +445,18 @@ extern "C" void clusterManagerWaitForClusterJoin(void) {
     int counter = 0,
         check_after = CLUSTER_JOIN_CHECK_AFTER +
                       (int)(listLength(cluster_manager.nodes) * 0.15f);
-    printf("clusterManagerWaitForClusterJoin: check_after: %d", check_after);
+    printf("clusterManagerWaitForClusterJoin: check_after: %d\n", check_after);
     while(!clusterManagerIsConfigConsistent()) {
         printf(".");
         fflush(stdout);
         sleep(1);
-        printf("clusterManagerWaitForClusterJoin: counter: %d", counter);
+        printf("clusterManagerWaitForClusterJoin: counter: %d\n", counter);
         if (++counter > check_after) {
             dict *status = clusterManagerGetLinkStatus();
             dictIterator *iter = NULL;
             if (status != NULL && dictSize(status) > 0) {
                 printf("\n");
+
                 clusterManagerLogErr("Warning: %d node(s) may "
                                      "be unreachable\n", dictSize(status));
                 iter = dictGetIterator(status);
@@ -467,9 +468,9 @@ extern "C" void clusterManagerWaitForClusterJoin(void) {
                     list *from = (list *) dictGetVal(entry);
                     if (parseClusterNodeAddress(nodeaddr, &node_ip,
                         &node_port, &node_bus_port) && node_bus_port) {
-                        clusterManagerLogErr(" - The port %d of node %s may "
+                        clusterManagerLogErr(" - The port %d busport %d of node %s may "
                                              "be unreachable from:\n",
-                                             node_bus_port, node_ip);
+                                             node_port, node_bus_port, node_ip);
                     } else {
                         clusterManagerLogErr(" - Node %s may be unreachable "
                                              "from:\n", nodeaddr);
@@ -546,6 +547,7 @@ cleanup:
  * are the unreachable node addresses and the values are lists of
  * node addresses that cannot reach the unreachable node. */
 dict *clusterManagerGetLinkStatus(void) {
+    clusterManagerLogInfo("*** clusterManagerGetLinkStatus\n");
     if (cluster_manager.nodes == NULL) return NULL;
     dict *status = dictCreate(&clusterManagerLinkDictType, NULL);
     listIter li;
@@ -553,6 +555,8 @@ dict *clusterManagerGetLinkStatus(void) {
     listRewind(cluster_manager.nodes, &li);
     while ((ln = listNext(&li)) != NULL) {
         clusterManagerNode *node = (clusterManagerNode*)ln->value;
+        clusterManagerLogInfo("*** checking links for node: %d %d\n", node->port, node->bus_port);
+
         list *links = clusterManagerGetDisconnectedLinks(node);
         if (links) {
             listIter lli;
@@ -560,6 +564,8 @@ dict *clusterManagerGetLinkStatus(void) {
             listRewind(links, &lli);
             while ((lln = listNext(&lli)) != NULL) {
                 clusterManagerLink *link = (clusterManagerLink*)lln->value;
+                clusterManagerLogInfo("*** node not connected: %s %s %d", link->node_name, link->node_addr, link->connected);
+
                 list *from = NULL;
                 dictEntry *entry = dictFind(status, link->node_addr);
                 if (entry) from = (list*)dictGetVal(entry);

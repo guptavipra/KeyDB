@@ -68,7 +68,7 @@
 #include "mt19937-64.h"
 
 #include "redis-cli.h"
-
+L
 redisContext *context;
 struct config config;
 
@@ -3924,9 +3924,10 @@ cleanup:
 
 // vipra
 int clusterManagerIsConfigConsistent(void) {
-    printf("clusterManagerIsConfigConsistent: listLength(cluster_manager.nodes): %lu", listLength(cluster_manager.nodes));
 
     if (cluster_manager.nodes == NULL) return 0;
+    printf("***IsConfigConsistent: length(cluster_manager.nodes): %lu", listLength(cluster_manager.nodes));
+
     int consistent = (listLength(cluster_manager.nodes) <= 1);
     // If the Cluster has only one node, it's always consistent
     if (consistent) return 1;
@@ -3938,7 +3939,10 @@ int clusterManagerIsConfigConsistent(void) {
     while ((ln = listNext(&li)) != NULL) {
         clusterManagerNode *node = ln->value;
         sds cfg = clusterManagerGetConfigSignature(node);
+
+        printf("***IsConfigConsistent: node: %s %d %d", node->ip, node->port, node->bus_port);
         if (cfg == NULL) {
+            printf("***IsConfigConsistent: cfg is null");
             consistent = 0;
             break;
         }
@@ -3950,6 +3954,8 @@ int clusterManagerIsConfigConsistent(void) {
         }
     }
     if (first_cfg != NULL) sdsfree(first_cfg);
+
+    printf("***IsConfigConsistent: consistent: %d", consistent);
     return consistent;
 }
 
@@ -4809,6 +4815,9 @@ assign_replicas:
         while ((ln = listNext(&li)) != NULL) {
             clusterManagerNode *node = ln->value;
             redisReply *reply = NULL;
+
+            clusterManagerLogInfo("*** node: %s %d %d cluster set-config-epoch %d \n", node->ip, node->port, node->bus_port, config_epoch);
+
             reply = CLUSTER_MANAGER_COMMAND(node,
                                             "cluster set-config-epoch %d",
                                             config_epoch++);
@@ -4820,18 +4829,27 @@ assign_replicas:
         listRewind(cluster_manager.nodes, &li);
         while ((ln = listNext(&li)) != NULL) {
             clusterManagerNode *node = ln->value;
+
+            clusterManagerLogInfo("*** Node: %s : %d : %d\n", node->ip, node->port, node->bus_port);
+
             if (first == NULL) {
                 first = node;
                 continue;
             }
             redisReply *reply = NULL;
+            clusterManagerLogInfo("*** first node: %s : %d : %d\n", first->ip, first->port, first->bus_port);
             if (first->bus_port == 0 || (first->bus_port == first->port + CLUSTER_MANAGER_PORT_INCR)) {
                 /* CLUSTER MEET bus-port parameter was added in 4.0.
                  * So if (bus_port == 0) or (bus_port == port + CLUSTER_MANAGER_PORT_INCR),
                  * we just call CLUSTER MEET with 2 arguments, using the old form. */
+
+                clusterManagerLogInfo("*** Cluster Meet: %s %d\n", first->ip, first->port);
+
                 reply = CLUSTER_MANAGER_COMMAND(node, "cluster meet %s %d",
                                                 first->ip, first->port);
             } else {
+                clusterManagerLogInfo("*** Cluster Meet: %s %d %d\n", first->ip, first->port, first->bus_port);
+
                 reply = CLUSTER_MANAGER_COMMAND(node, "cluster meet %s %d %d",
                                                 first->ip, first->port, first->bus_port);
             }
@@ -4900,6 +4918,9 @@ cleanup:
 }
 
 static int clusterManagerCommandAddNode(int argc, char **argv) {
+
+    clusterManagerLogInfo("*** clusterManagerCommandAddNode");
+
     int success = 1;
     redisReply *reply = NULL;
 
@@ -4967,6 +4988,7 @@ static int clusterManagerCommandAddNode(int argc, char **argv) {
     listAddNodeTail(cluster_manager.nodes, new_node);
     added = 1;
 
+
     // Send CLUSTER MEET command to the new node
     clusterManagerLogInfo(">>> Send CLUSTER MEET to node %s:%d to make it "
                           "join the cluster.\n", ip, port);
@@ -4974,9 +4996,15 @@ static int clusterManagerCommandAddNode(int argc, char **argv) {
         /* CLUSTER MEET bus-port parameter was added in 4.0.
          * So if (bus_port == 0) or (bus_port == port + CLUSTER_MANAGER_PORT_INCR),
          * we just call CLUSTER MEET with 2 arguments, using the old form. */
+
+        clusterManagerLogInfo("*** Cluster Meet: %s %d\n", first->ip, first->port);
+
         reply = CLUSTER_MANAGER_COMMAND(new_node, "CLUSTER MEET %s %d",
                                         first->ip, first->port);
     } else {
+
+        clusterManagerLogInfo("*** Cluster Meet: %s %d %d\n", first->ip, first->port, first->bus_port);
+
         reply = CLUSTER_MANAGER_COMMAND(new_node, "CLUSTER MEET %s %d %d",
                                         first->ip, first->port, first->bus_port);
     }
@@ -4988,9 +5016,15 @@ static int clusterManagerCommandAddNode(int argc, char **argv) {
     if (master_node) {
         sleep(1);
         clusterManagerWaitForClusterJoin();
+        clusterManagerLogInfo("*** Configure node as replica of %s:%d\n", master_node->ip, master_node->port);
+
+
         clusterManagerLogInfo(">>> Configure node as replica of %s:%d.\n",
                               master_node->ip, master_node->port);
         freeReplyObject(reply);
+
+        clusterManagerLogInfo("*** CLUSTER REPLICATE %s\n", master_node->name);
+
         reply = CLUSTER_MANAGER_COMMAND(new_node, "CLUSTER REPLICATE %s",
                                         master_node->name);
         if (!(success = clusterManagerCheckRedisReply(new_node, reply, NULL)))
