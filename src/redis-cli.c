@@ -2435,6 +2435,7 @@ static clusterManagerNode *clusterManagerNewNode(char *ip, int port) {
     node->name = NULL;
     node->ip = ip;
     node->port = port;
+    node->bus_port = port + 1000;
     node->current_epoch = 0;
     node->ping_sent = 0;
     node->ping_recv = 0;
@@ -3914,6 +3915,7 @@ static sds clusterManagerGetConfigSignature(clusterManagerNode *node) {
     if (reply == NULL || reply->type == REDIS_REPLY_ERROR)
         goto cleanup;
     char *lines = reply->str, *p, *line;
+    printf("***clusterManagerGetConfigSignature lines: %s\n", lines);
     while ((p = strstr(lines, "\n")) != NULL) {
         i = 0;
         *p = '\0';
@@ -4003,7 +4005,7 @@ int clusterManagerIsConfigConsistent(int fLog) {
     printf("clusterManagerIsConfigConsistent: len(cluster_manager.nodes): %lu", (listLength(cluster_manager.nodes)));
 
     if (cluster_manager.nodes == NULL) return 0;
-    printf("***IsConfigConsistent: length(cluster_manager.nodes): %lu", listLength(cluster_manager.nodes));
+    printf("***IsConfigConsistent: length(cluster_manager.nodes): %lu\n", listLength(cluster_manager.nodes));
 
     int consistent = (listLength(cluster_manager.nodes) <= 1);
     // If the Cluster has only one node, it's always consistent
@@ -4018,9 +4020,9 @@ int clusterManagerIsConfigConsistent(int fLog) {
         clusterManagerNode *node = ln->value;
         sds cfg = clusterManagerGetConfigSignature(node);
 
-        printf("***IsConfigConsistent: node: %s %d %d", node->ip, node->port, node->bus_port);
+        printf("***IsConfigConsistent: node: %s %d %d\n", node->ip, node->port, node->bus_port);
         if (cfg == NULL) {
-            printf("***IsConfigConsistent: cfg is null");
+            printf("***IsConfigConsistent: cfg is null\n");
             consistent = 0;
             break;
         }
@@ -4037,7 +4039,7 @@ int clusterManagerIsConfigConsistent(int fLog) {
     }
     if (first_cfg != NULL) sdsfree(first_cfg);
 
-    printf("***IsConfigConsistent: consistent: %d", consistent);
+    printf("***IsConfigConsistent: consistent: %d\n", consistent);
     return consistent;
 }
 
@@ -4707,8 +4709,13 @@ cluster_manager_err:
 static int clusterManagerCommandCreate(int argc, char **argv) {
     int i, j, success = 1;
     cluster_manager.nodes = listCreate();
+
+    printf("***clusterManagerCommandCreate: argc: %d\n", argc);
+
     for (i = 0; i < argc; i++) {
         char *addr = argv[i];
+        printf("***clusterManagerCommandCreate: addr: %s\n", argv[i]);
+
         char *c = strrchr(addr, '@');
         if (c != NULL) *c = '\0';
         c = strrchr(addr, ':');
@@ -4720,6 +4727,8 @@ static int clusterManagerCommandCreate(int argc, char **argv) {
         char *ip = addr;
         int port = atoi(++c);
         clusterManagerNode *node = clusterManagerNewNode(ip, port);
+
+        printf("***clusterManagerCommandCreate: node: %s: %d: %d\n", node->ip, node->port, node->bus_port);
         if (!clusterManagerNodeConnect(node)) {
             freeClusterManagerNode(node);
             return 0;
@@ -4773,6 +4782,8 @@ static int clusterManagerCommandCreate(int argc, char **argv) {
     listRewind(cluster_manager.nodes, &li);
     while ((ln = listNext(&li)) != NULL) {
         clusterManagerNode *n = ln->value;
+        printf("***clusterManagerCommandCreate: clusterManagerNode node: %s: %d: %d\n", n->ip, n->port, n->bus_port);
+
         int found = 0;
         for (i = 0; i < ip_count; i++) {
             char *ip = ips[i];
@@ -4807,6 +4818,8 @@ static int clusterManagerCommandCreate(int argc, char **argv) {
     float cursor = 0.0f;
     for (i = 0; i < masters_count; i++) {
         clusterManagerNode *master = masters[i];
+        printf("***clusterManagerCommandCreate: master node: %s: %d: %d\n", master->ip, master->port, master->bus_port);
+
         long last = lround(cursor + slots_per_node - 1);
         if (last > CLUSTER_MANAGER_SLOTS || i == (masters_count - 1))
             last = CLUSTER_MANAGER_SLOTS - 1;
@@ -4860,8 +4873,8 @@ assign_replicas:
                 slave->replicate = sdsnew(master->name);
                 slave->dirty = 1;
             } else break;
-            printf("Adding replica %s:%d to %s:%d\n", slave->ip, slave->port,
-                   master->ip, master->port);
+            printf("Adding replica %s:%d:%d to %s:%d:%d\n", slave->ip, slave->port, slave->bus_port,
+                   master->ip, master->port, master->bus_port);
             if (assign_unused) break;
         }
     }
@@ -4908,8 +4921,7 @@ assign_replicas:
                                             config_epoch++);
             if (reply != NULL) freeReplyObject(reply);
         }
-        clusterManagerLogInfo(">>> Sending CLUSTER MEET messages to join "
-                              "the cluster\n");
+        clusterManagerLogInfo(">>> Sending CLUSTER MEET messages to join the cluster\n");
         clusterManagerNode *first = NULL;
         listRewind(cluster_manager.nodes, &li);
         while ((ln = listNext(&li)) != NULL) {
