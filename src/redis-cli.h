@@ -22,6 +22,7 @@ extern "C" {
 #define REDIS_CLI_CLUSTER_YES_ENV "REDISCLI_CLUSTER_YES"
 
 #define CLUSTER_MANAGER_SLOTS               16384
+#define CLUSTER_MANAGER_PORT_INCR           10000 /* same as CLUSTER_PORT_INCR */
 #define CLUSTER_MANAGER_MIGRATE_TIMEOUT     60000
 #define CLUSTER_MANAGER_MIGRATE_PIPELINE    10
 #define CLUSTER_MANAGER_REBALANCE_THRESHOLD 2
@@ -210,6 +211,7 @@ typedef struct clusterManagerNode {
     sds name;
     char *ip;
     int port;
+    int bus_port; /* cluster-port */
     uint64_t current_epoch;
     time_t ping_sent;
     time_t ping_recv;
