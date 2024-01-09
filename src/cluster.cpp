@@ -194,7 +194,7 @@ int clusterLoadConfig(char *filename) {
         }
         n->port = atoi(port);
         /* In older versions of nodes.conf the "@busport" part is missing.
-         * In this case we set it to the default offset of 10000 from the
+         * In this case we set it to the default offset of 1000 from the
          * base port. */
         n->cport = busp ? atoi(busp) : n->port + CLUSTER_PORT_INCR;
 
