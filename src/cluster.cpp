@@ -179,6 +179,7 @@ int clusterLoadConfig(char *filename) {
             n = createClusterNode(argv[0],0);
             clusterAddNode(n);
         }
+        printf("***clusterLoadConfig: argv[1]: %s\n", argv[1]);
         /* Address and port */
         if ((p = strrchr(argv[1],':')) == NULL) {
             sdsfreesplitres(argv,argc);
@@ -197,6 +198,7 @@ int clusterLoadConfig(char *filename) {
          * In this case we set it to the default offset of 10000 from the
          * base port. */
         n->cport = busp ? atoi(busp) : n->port + CLUSTER_PORT_INCR;
+        printf("***clusterLoadConfig: ip: %s, port: %d, busport: %d\n", n->ip, n->port, n->cport);
 
         /* The plaintext port for client in a TLS cluster (n->pport) is not
          * stored in nodes.conf. It is received later over the bus protocol. */
@@ -463,6 +465,11 @@ void deriveAnnouncedPorts(int *announced_port, int *announced_pport,
     *announced_port = port;
     *announced_pport = g_pserver->tls_cluster ? g_pserver->port : 0;
     *announced_cport = port + CLUSTER_PORT_INCR;
+
+    printf("***deriveAnnouncedPorts: g_pserver: tls_cluster: %d, cluster_announce_tls_port: %s, cluster_announce_port: %d, cluster_announce_bus_port: %d\n",g_pserver->tls_cluster,
+           g_pserver->cluster_announce_tls_port,
+           g_pserver->cluster_announce_port%d           g_pserver->cluster_announce_bus_port);
+
     /* Config overriding announced ports. */
     if (g_pserver->tls_cluster && g_pserver->cluster_announce_tls_port) {
         *announced_port = g_pserver->cluster_announce_tls_port;
@@ -473,6 +480,8 @@ void deriveAnnouncedPorts(int *announced_port, int *announced_pport,
     if (g_pserver->cluster_announce_bus_port) {
         *announced_cport = g_pserver->cluster_announce_bus_port;
     }
+
+    printf("***deriveAnnouncedPorts: announced_port: %d, announced_pport: %d, announced_cport: %d\n",*announced_port, *announced_pport, *announced_cport);
 }
 
 /* Some flags (currently just the NOFAILOVER flag) may need to be updated
@@ -569,10 +578,11 @@ void clusterInit(void) {
     memset(g_pserver->cluster->slots_keys_count,0,
            sizeof(g_pserver->cluster->slots_keys_count));
 
-    // vipra
     /* Set myself->port/cport/pport to my listening ports, we'll just need to
      * discover the IP address via MEET messages. */
     deriveAnnouncedPorts(&myself->port, &myself->pport, &myself->cport);
+
+    printf("***clusterInit ip: %s, myself.port: %d, myself.pport: %d, myself.cport: %d\n", myself->ip, myself->port, myself->pport, myself->cport);
 
     g_pserver->cluster->mf_end = 0;
     resetManualFailover();
@@ -2517,6 +2527,8 @@ void clusterBuildMessageHdr(clusterMsg *hdr, int type) {
     /* Handle cluster-announce-[tls-|bus-]port. */
     int announced_port, announced_pport, announced_cport;
     deriveAnnouncedPorts(&announced_port, &announced_pport, &announced_cport);
+
+    printf("***clusterBuildMessageHdr: announced_port: %d, announced_pport: %d, announced_cport: %d\n",announced_port, announced_pport, announced_cport);
 
     memcpy(hdr->myslots,master->slots,sizeof(hdr->myslots));
     memset(hdr->slaveof,0,CLUSTER_NAMELEN);
@@ -4480,10 +4492,9 @@ void clusterCommand(client *c) {
         return;
     }
 
-    // vipra
-    serverLog(LL_DEBUG, "clusterCommand: c->argc %d", c->argc);
+    printf("clusterCommand: c->argc %d\n", c->argc);
     for(int j = 0; j < c->argc; j++) {
-        serverLog(LL_DEBUG, "clusterCommand: c->argv[%d]: %s", j, szFromObj(c->argv[j]));
+        printf("clusterCommand: c->argv[%d]: %s\n", j, szFromObj(c->argv[j]));
     }
 
     if (c->argc == 2 && !strcasecmp(szFromObj(c->argv[1]),"help")) {
@@ -4554,7 +4565,7 @@ NULL
         } else {
             cport = port + CLUSTER_PORT_INCR;
         }
-        serverLog(LL_DEBUG, "clusterCommand: port: %lld, cport: %lld", port, cport);
+        printf("***clusterCommand: port: %lld, cport: %lld\n", port, cport);
 
         if (clusterStartHandshake(szFromObj(c->argv[2]),port,cport) == 0 &&
             errno == EINVAL)

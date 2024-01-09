@@ -22,7 +22,7 @@ extern "C" {
 #define REDIS_CLI_CLUSTER_YES_ENV "REDISCLI_CLUSTER_YES"
 
 #define CLUSTER_MANAGER_SLOTS               16384
-#define CLUSTER_MANAGER_PORT_INCR           1000 /* same as CLUSTER_PORT_INCR */
+#define CLUSTER_MANAGER_PORT_INCR           10000 /* same as CLUSTER_PORT_INCR */
 #define CLUSTER_MANAGER_MIGRATE_TIMEOUT     60000
 #define CLUSTER_MANAGER_MIGRATE_PIPELINE    10
 #define CLUSTER_MANAGER_REBALANCE_THRESHOLD 2
@@ -93,7 +93,6 @@ extern "C" {
 #define LOG_COLOR_GREEN     "32;1m"
 #define LOG_COLOR_YELLOW    "33;1m"
 #define LOG_COLOR_RESET     "0m"
-
 
 /* cliConnect() flags. */
 #define CC_FORCE (1<<0)         /* Re-connect if already connected. */

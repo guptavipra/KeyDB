@@ -3619,9 +3619,7 @@ void initServer(void) {
     static_assert(sizeof(uuid_t) == sizeof(cserver.uuid), "UUIDs are standardized at 16-bytes");
     uuid_generate((unsigned char*)cserver.uuid);
 
-    // vipra
     if (g_pserver->cluster_enabled) clusterInit();
-
     replicationScriptCacheInit();
     scriptingInit(1);
     slowlogInit();
@@ -6619,7 +6617,6 @@ redisTestProc *getTestProcByName(const char *name) {
 }
 #endif
 
-// vipra: main
 int main(int argc, char **argv) {
     struct timeval tv;
     int j;
@@ -6751,7 +6748,7 @@ int main(int argc, char **argv) {
          * Precedence wise, File, stdin, explicit options -- last config is the one that matters.
          *
          * First argument is the config file name? */
-        // vipra: get the config file name
+        // get the config file name
         if (argv[1][0] != '-') {
             /* Replace the config file in g_pserver->exec_argv with its absolute path. */
             cserver.configfile = getAbsolutePath(argv[1]);
@@ -6824,7 +6821,6 @@ int main(int argc, char **argv) {
 
     initServerThread(&g_pserver->modulethreadvar, false);
     readOOMScoreAdj();
-    // vipra: Step 1
     initServer();
     initNetworking(cserver.cthreads > 1 /* fReusePort */);
 
