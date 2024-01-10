@@ -466,9 +466,11 @@ void deriveAnnouncedPorts(int *announced_port, int *announced_pport,
     *announced_pport = g_pserver->tls_cluster ? g_pserver->port : 0;
     *announced_cport = port + CLUSTER_PORT_INCR;
 
-    printf("***deriveAnnouncedPorts: g_pserver: tls_cluster: %d, cluster_announce_tls_port: %s, cluster_announce_port: %d, cluster_announce_bus_port: %d\n",g_pserver->tls_cluster,
+    printf("***deriveAnnouncedPorts: g_pserver: tls_cluster: %d, cluster_announce_tls_port: %s, cluster_announce_port: %d, cluster_announce_bus_port: %d\n",
+           g_pserver->tls_cluster,
            g_pserver->cluster_announce_tls_port,
-           g_pserver->cluster_announce_port%d           g_pserver->cluster_announce_bus_port);
+           g_pserver->cluster_announce_port,
+           g_pserver->cluster_announce_bus_port);
 
     /* Config overriding announced ports. */
     if (g_pserver->tls_cluster && g_pserver->cluster_announce_tls_port) {
