@@ -3837,7 +3837,7 @@ static sds clusterManagerGetConfigSignature(clusterManagerNode *node) {
     if (reply == NULL || reply->type == REDIS_REPLY_ERROR)
         goto cleanup;
     char *lines = reply->str, *p, *line;
-    printf("***clusterManagerGetConfigSignature lines: %s\n", lines);
+    printf("***clusterManagerGetConfigSignature lines:\n %s", lines);
     while ((p = strstr(lines, "\n")) != NULL) {
         i = 0;
         *p = '\0';

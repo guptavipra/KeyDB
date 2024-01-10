@@ -583,7 +583,6 @@ void clusterInit(void) {
     /* Set myself->port/cport/pport to my listening ports, we'll just need to
      * discover the IP address via MEET messages. */
     deriveAnnouncedPorts(&myself->port, &myself->pport, &myself->cport);
-
     printf("***clusterInit ip: %s, myself.port: %d, myself.pport: %d, myself.cport: %d\n", myself->ip, myself->port, myself->pport, myself->cport);
 
     g_pserver->cluster->mf_end = 0;
@@ -1402,16 +1401,27 @@ int clusterHandshakeInProgress(char *ip, int port, int cport) {
     dictIterator *di;
     dictEntry *de;
 
+    printf("***clusterHandshakeInProgress: ip: %s, port: %d, cport: %d\n", *ip, port, cport);
+
     di = dictGetSafeIterator(g_pserver->cluster->nodes);
     while((de = dictNext(di)) != NULL) {
         clusterNode *node = (clusterNode*)dictGetVal(de);
 
         if (!nodeInHandshake(node)) continue;
+
+        printf("***clusterHandshakeInProgress: !strcasecmp(node->ip,ip): %d,"
+               "node->port == port: %d,"
+               "node->cport == cport: %d\n",
+               !strcasecmp(node->ip,ip),
+               node->port == port,
+               node->cport == cport);
         if (!strcasecmp(node->ip,ip) &&
             node->port == port &&
             node->cport == cport) break;
     }
     dictReleaseIterator(di);
+    printf("***clusterHandshakeInProgress: returning: %d\n", de != NULL);
+
     return de != NULL;
 }
 
@@ -1437,15 +1447,20 @@ int clusterStartHandshake(char *ip, int port, int cport) {
     {
         sa.ss_family = AF_INET6;
     } else {
+        printf("***clusterStartHandshake: ip sanity check, returning error EINVAL\n");
         errno = EINVAL;
         return 0;
     }
+    printf("***clusterStartHandshake: ip sanity check passed\n");
 
     /* Port sanity check */
     if (port <= 0 || port > 65535 || cport <= 0 || cport > 65535) {
         errno = EINVAL;
+        printf("***clusterStartHandshake: port sanity check, returning error EINVAL\n");
         return 0;
     }
+
+    printf("***clusterStartHandshake: port sanity check passed\n");
 
     /* Set norm_ip as the normalized string representation of the node
      * IP address. */
@@ -1461,6 +1476,7 @@ int clusterStartHandshake(char *ip, int port, int cport) {
 
     if (clusterHandshakeInProgress(norm_ip,port,cport)) {
         errno = EAGAIN;
+        printf("***clusterStartHandshake: handshake in progress, returning error EAGAIN\n");
         return 0;
     }
 
@@ -1468,10 +1484,16 @@ int clusterStartHandshake(char *ip, int port, int cport) {
      * createClusterNode()). Everything will be fixed during the
      * handshake. */
     n = createClusterNode(NULL,CLUSTER_NODE_HANDSHAKE|CLUSTER_NODE_MEET);
+
     memcpy(n->ip,norm_ip,sizeof(n->ip));
     n->port = port;
     n->cport = cport;
+
+    printf("***clusterStartHandshake: after createClusterNode, ip: %s, port: %d, cport: %d\n", n->ip, n->port, n->cport);
+
     clusterAddNode(n);
+
+    printf("***clusterStartHandshake: returning meet message passed\n");
     return 1;
 }
 
@@ -4386,6 +4408,7 @@ sds clusterGenNodesDescription(int filter, int use_pport) {
         }
     }
     dictReleaseIterator(di);
+    printf("%s\n", ci);
     return ci;
 }
 
@@ -4494,6 +4517,11 @@ void clusterCommand(client *c) {
         return;
     }
 
+    int len = 10;
+    if (c->argc < len) {
+        len = c->argc;
+    }
+
     printf("clusterCommand: c->argc %d\n", c->argc);
     for(int j = 0; j < c->argc; j++) {
         printf("clusterCommand: c->argv[%d]: %s\n", j, szFromObj(c->argv[j]));
@@ -4575,6 +4603,7 @@ NULL
             addReplyErrorFormat(c,"Invalid node address specified: %s:%s",
                             (char*)ptrFromObj(c->argv[2]), (char*)ptrFromObj(c->argv[3]));
         } else {
+            printf("cluster meet, responding ok \n");
             addReply(c,shared.ok);
         }
     } else if (!strcasecmp(szFromObj(c->argv[1]),"nodes") && c->argc == 2) {
