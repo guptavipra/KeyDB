@@ -445,18 +445,15 @@ extern "C" void clusterManagerWaitForClusterJoin(void) {
     int counter = 0,
         check_after = CLUSTER_JOIN_CHECK_AFTER +
                       (int)(listLength(cluster_manager.nodes) * 0.15f);
-    printf("clusterManagerWaitForClusterJoin: check_after: %d\n", check_after);
     while(!clusterManagerIsConfigConsistent()) {
         printf(".");
         fflush(stdout);
         sleep(1);
-        printf("clusterManagerWaitForClusterJoin: counter: %d\n", counter);
         if (++counter > check_after) {
             dict *status = clusterManagerGetLinkStatus();
             dictIterator *iter = NULL;
             if (status != NULL && dictSize(status) > 0) {
                 printf("\n");
-
                 clusterManagerLogErr("Warning: %d node(s) may "
                                      "be unreachable\n", dictSize(status));
                 iter = dictGetIterator(status);
@@ -547,7 +544,6 @@ cleanup:
  * are the unreachable node addresses and the values are lists of
  * node addresses that cannot reach the unreachable node. */
 dict *clusterManagerGetLinkStatus(void) {
-    clusterManagerLogInfo("*** clusterManagerGetLinkStatus\n");
     if (cluster_manager.nodes == NULL) return NULL;
     dict *status = dictCreate(&clusterManagerLinkDictType, NULL);
     listIter li;
@@ -555,7 +551,6 @@ dict *clusterManagerGetLinkStatus(void) {
     listRewind(cluster_manager.nodes, &li);
     while ((ln = listNext(&li)) != NULL) {
         clusterManagerNode *node = (clusterManagerNode*)ln->value;
-        clusterManagerLogInfo("*** checking links for node: %d %d\n", node->port, node->bus_port);
 
         list *links = clusterManagerGetDisconnectedLinks(node);
         if (links) {
@@ -564,7 +559,6 @@ dict *clusterManagerGetLinkStatus(void) {
             listRewind(links, &lli);
             while ((lln = listNext(&lli)) != NULL) {
                 clusterManagerLink *link = (clusterManagerLink*)lln->value;
-                clusterManagerLogInfo("*** node not connected: %s %s %d", link->node_name, link->node_addr, link->connected);
 
                 list *from = NULL;
                 dictEntry *entry = dictFind(status, link->node_addr);
@@ -586,7 +580,6 @@ dict *clusterManagerGetLinkStatus(void) {
     return status;
 }
 
-// vipra
 extern "C" int clusterManagerCheckCluster(int quiet) {
     listNode *ln = listFirst(cluster_manager.nodes);
     if (!ln) return 0;
