@@ -167,6 +167,7 @@ int clusterLoadConfig(char *filename) {
             continue;
         }
 
+        printf("***clusterLoadConfig: argc: %d\n", argc);
         /* Regular config lines have at least eight fields */
         if (argc < 8) {
             sdsfreesplitres(argv,argc);
@@ -179,7 +180,11 @@ int clusterLoadConfig(char *filename) {
             n = createClusterNode(argv[0],0);
             clusterAddNode(n);
         }
-        printf("***clusterLoadConfig: argv[1]: %s\n", argv[1]);
+
+        for (int x=0; x < 8; x++) {
+            printf("***argv[%d]: %s\n", x, argv[x]);
+        }
+
         /* Address and port */
         if ((p = strrchr(argv[1],':')) == NULL) {
             sdsfreesplitres(argv,argc);
@@ -1401,7 +1406,7 @@ int clusterHandshakeInProgress(char *ip, int port, int cport) {
     dictIterator *di;
     dictEntry *de;
 
-    printf("***clusterHandshakeInProgress: ip: %s, port: %d, cport: %d\n", *ip, port, cport);
+    printf("***clusterHandshakeInProgress: ip: %c, port: %d, cport: %d\n", *ip, port, cport);
 
     di = dictGetSafeIterator(g_pserver->cluster->nodes);
     while((de = dictNext(di)) != NULL) {
@@ -1502,16 +1507,23 @@ int clusterStartHandshake(char *ip, int port, int cport) {
  * by the caller, not in the content of the gossip section, but in the
  * length. */
 void clusterProcessGossipSection(clusterMsg *hdr, clusterLink *link) {
+    printf("***clusterProcessGossipSection");
+
     uint16_t count = ntohs(hdr->count);
     clusterMsgDataGossip *g = (clusterMsgDataGossip*) hdr->data.ping.gossip;
     clusterNode *sender = link->node ? link->node : clusterLookupNode(hdr->sender);
 
+    printf("***clusterProcessGossipSection, g: %s:%d@%d", g->ip, g->port, g->cport);
+    printf("***clusterProcessGossipSection, sender: %s:%d@%d", sender->ip, sender->port, sender->cport);
+
     while(count--) {
         uint16_t flags = ntohs(g->flags);
+        printf("***clusterProcessGossipSection, flags: %d", flags);
+
         clusterNode *node;
         sds ci;
 
-        if (cserver.verbosity == LL_DEBUG) {
+//        if (cserver.verbosity == LL_DEBUG) {
             ci = representClusterNodeFlags(sdsempty(), flags);
             serverLog(LL_DEBUG,"GOSSIP %.40s %s:%d@%d %s",
                 g->nodename,
@@ -1520,10 +1532,12 @@ void clusterProcessGossipSection(clusterMsg *hdr, clusterLink *link) {
                 ntohs(g->cport),
                 ci);
             sdsfree(ci);
-        }
+//        }
+
 
         /* Update our state accordingly to the gossip sections */
         node = clusterLookupNode(g->nodename);
+        printf("***clusterProcessGossipSection, node is null: %d", node != nullptr);
         if (node) {
             /* We already know this node.
                Handle failure reports, only when the sender is a master. */
@@ -1595,6 +1609,7 @@ void clusterProcessGossipSection(clusterMsg *hdr, clusterLink *link) {
              * Note that we require that the sender of this gossip message
              * is a well known node in our cluster, otherwise we risk
              * joining another cluster. */
+
             if (sender &&
                 !(flags & CLUSTER_NODE_NOADDR) &&
                 !clusterBlacklistExists(g->nodename))
@@ -1827,6 +1842,7 @@ void clusterUpdateSlotsConfigWith(clusterNode *sender, uint64_t senderConfigEpoc
  * processing lead to some inconsistency error (for instance a PONG
  * received from the wrong sender ID). */
 int clusterProcessPacket(clusterLink *link) {
+    printf("***clusterProcessPacket");
     serverAssert(ielFromEventLoop(serverTL->el) == IDX_EVENT_LOOP_MAIN);
 
     clusterMsg *hdr = (clusterMsg*) link->rcvbuf;
@@ -1834,6 +1850,7 @@ int clusterProcessPacket(clusterLink *link) {
     uint16_t type = ntohs(hdr->type);
     mstime_t now = mstime();
 
+    printf("clusterProcessPacket: type: %hu", type);
     if (type < CLUSTERMSG_TYPE_COUNT)
         g_pserver->cluster->stats_bus_messages_received[type]++;
     serverLog(LL_DEBUG,"--- Processing packet of type %d, %lu bytes",
@@ -1939,6 +1956,7 @@ int clusterProcessPacket(clusterLink *link) {
 
     /* Initial processing of PING and MEET requests replying with a PONG. */
     if (type == CLUSTERMSG_TYPE_PING || type == CLUSTERMSG_TYPE_MEET) {
+        printf("ping packet received: %p\n", (void*)link->node);
         serverLog(LL_DEBUG,"Ping packet received: %p", (void*)link->node);
 
         /* We use incoming MEET messages in order to set the address
@@ -1997,6 +2015,10 @@ int clusterProcessPacket(clusterLink *link) {
     if (type == CLUSTERMSG_TYPE_PING || type == CLUSTERMSG_TYPE_PONG ||
         type == CLUSTERMSG_TYPE_MEET)
     {
+        printf("%s packet received: %p",
+               type == CLUSTERMSG_TYPE_PING ? "ping" : "pong",
+               (void*)link->node);
+
         serverLog(LL_DEBUG,"%s packet received: %p",
             type == CLUSTERMSG_TYPE_PING ? "ping" : "pong",
             (void*)link->node);
@@ -2033,6 +2055,10 @@ int clusterProcessPacket(clusterLink *link) {
                 /* If the reply has a non matching node ID we
                  * disconnect this node and set it as not having an associated
                  * address. */
+                printf("PONG contains mismatching sender ID. About node %.40s added %d ms ago, having flags %d",
+                       link->node->name,
+                       (int)(now-(link->node->ctime)),
+                       link->node->flags);
                 serverLog(LL_DEBUG,"PONG contains mismatching sender ID. About node %.40s added %d ms ago, having flags %d",
                     link->node->name,
                     (int)(now-(link->node->ctime)),
@@ -2353,20 +2379,26 @@ void clusterWriteHandler(connection *conn) {
  * gets established.
  */
 void clusterLinkConnectHandler(connection *conn) {
+    printf("*** clusterLinkConnectHandler");
     clusterLink *link = (clusterLink*)connGetPrivateData(conn);
     clusterNode *node = link->node;
+
+    printf("*** clusterLinkConnectHandler, node is null: %d", node == nullptr);
     if (node == nullptr)
         return; // we're about to be freed
 
+    printf("*** clusterLinkConnectHandler, node: %s:%d@%d", node->ip, node->port, node->cport);
+
     /* Check if connection succeeded */
     if (connGetState(conn) != CONN_STATE_CONNECTED) {
+        printf("Connection failed");
         serverLog(LL_VERBOSE, "Connection with Node %.40s at %s:%d failed: %s",
                 node->name, node->ip, node->cport,
                 connGetLastError(conn));
         freeClusterLink(link);
         return;
     }
-
+    printf("Connection succeeded");
     /* Register a read handler from now on */
     connSetReadHandler(conn, clusterReadHandler);
 
@@ -2377,6 +2409,7 @@ void clusterLinkConnectHandler(connection *conn) {
      * of a PING one, to force the receiver to add us in its node
      * table. */
     mstime_t old_ping_sent = node->ping_sent;
+
     clusterSendPing(link, node->flags & CLUSTER_NODE_MEET ?
             CLUSTERMSG_TYPE_MEET : CLUSTERMSG_TYPE_PING);
     if (old_ping_sent) {
@@ -2478,6 +2511,10 @@ void clusterReadHandler(connection *conn) {
  * from event handlers that will do stuff with the same link later. */
 void clusterSendMessage(clusterLink *link, unsigned char *msg, size_t msglen) {
     serverAssert(GlobalLocksAcquired());
+
+    printf("***clusterSendMessage: link: %s:%d@%d \n", link->node->ip, link->node->port, link->node->cport);
+    printf("***clusterSendMessage: msg: %s\n", msg);
+
     if (sdslen(link->sndbuf) == 0 && msglen != 0)
     {
         aePostFunction(g_pserver->rgthreadvar[IDX_EVENT_LOOP_MAIN].el, [link] {
@@ -2492,6 +2529,16 @@ void clusterSendMessage(clusterLink *link, unsigned char *msg, size_t msglen) {
     uint16_t type = ntohs(hdr->type);
     if (type < CLUSTERMSG_TYPE_COUNT)
         g_pserver->cluster->stats_bus_messages_sent[type]++;
+
+    printf("***clusterSendMessage: msg: sig:%s\nport: %d\ncport: %d\ntype:%d\nsender: %s\nmyip: %s\nstate: %c\n mflags: %s\n",
+           hdr->sig,
+           hdr->port,
+           hdr->cport,
+           hdr->type,
+           hdr->sender,
+           hdr->myip,
+           hdr->state,
+           hdr->mflags);
 }
 
 /* Send a message to all the nodes that are part of the cluster having
@@ -2746,6 +2793,7 @@ void clusterSendPing(clusterLink *link, int type) {
     totlen += (sizeof(clusterMsgDataGossip)*gossipcount);
     hdr->count = htons(gossipcount);
     hdr->totlen = htonl(totlen);
+
     clusterSendMessage(link,buf,totlen);
     zfree(buf);
 }
@@ -4523,7 +4571,7 @@ void clusterCommand(client *c) {
     }
 
     printf("clusterCommand: c->argc %d\n", c->argc);
-    for(int j = 0; j < c->argc; j++) {
+    for(int j = 0; j < len; j++) {
         printf("clusterCommand: c->argv[%d]: %s\n", j, szFromObj(c->argv[j]));
     }
 
@@ -4859,6 +4907,7 @@ NULL
         info = sdscatprintf(info,
             "cluster_stats_messages_received:%lld\r\n", tot_msg_received);
 
+        printf("info %s\n", info);
         /* Produce the reply protocol. */
         addReplyVerbatim(c,info,sdslen(info),"txt");
         sdsfree(info);
