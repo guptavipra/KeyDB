@@ -2208,12 +2208,8 @@ clusterManagerCommandDef clusterManagerCommands[] = {
     {"rebalance", clusterManagerCommandRebalance, -1, "<host:port> or <host> <port> - separated by either colon or space",
             "weight <node1=w1...nodeN=wN>,use-empty-masters,"
             "timeout <arg>,simulate,pipeline <arg>,threshold <arg>,replace"},
-
-
     {"add-node", clusterManagerCommandAddNode, 2,
      "new_host:new_port existing_host:existing_port", "slave,master-id <arg>"},
-
-
     {"del-node", clusterManagerCommandDeleteNode, 2, "host:port node_id",NULL},
     {"call", clusterManagerCommandCall, -2,
         "host:port command arg arg .. arg", "only-masters,only-replicas"},
@@ -4815,6 +4811,7 @@ assign_replicas:
         clusterManagerNode *first = NULL;
         listRewind(cluster_manager.nodes, &li);
         while ((ln = listNext(&li)) != NULL) {
+            clusterManagerNode *node = ln->value;
             if (first == NULL) {
                 first = node;
                 continue;
@@ -4825,9 +4822,6 @@ assign_replicas:
                 /* CLUSTER MEET bus-port parameter was added in 4.0.
                  * So if (bus_port == 0) or (bus_port == port + CLUSTER_MANAGER_PORT_INCR),
                  * we just call CLUSTER MEET with 2 arguments, using the old form. */
-
-                clusterManagerLogInfo("*** Cluster Meet: %s %d\n", first->ip, first->port);
-
                 reply = CLUSTER_MANAGER_COMMAND(node, "cluster meet %s %d",
                                                 first->ip, first->port);
             } else {

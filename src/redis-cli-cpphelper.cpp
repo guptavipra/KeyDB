@@ -551,7 +551,6 @@ dict *clusterManagerGetLinkStatus(void) {
     listRewind(cluster_manager.nodes, &li);
     while ((ln = listNext(&li)) != NULL) {
         clusterManagerNode *node = (clusterManagerNode*)ln->value;
-
         list *links = clusterManagerGetDisconnectedLinks(node);
         if (links) {
             listIter lli;
@@ -559,7 +558,6 @@ dict *clusterManagerGetLinkStatus(void) {
             listRewind(links, &lli);
             while ((lln = listNext(&lli)) != NULL) {
                 clusterManagerLink *link = (clusterManagerLink*)lln->value;
-
                 list *from = NULL;
                 dictEntry *entry = dictFind(status, link->node_addr);
                 if (entry) from = (list*)dictGetVal(entry);
